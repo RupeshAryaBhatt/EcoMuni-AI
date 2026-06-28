@@ -603,55 +603,59 @@ def tab_report_verify():
     st.markdown('<hr class="eco-divider">', unsafe_allow_html=True)
 
     # ── Report form ──
-    with st.container():
-        col_left, col_right = st.columns([1.1, 1], gap="large")
-
-        with col_left:
+    with col_left:
             st.markdown("**Upload Photo or Video**")
             uploaded = st.file_uploader(
                 "Drag & drop or click to browse",
-                type=["jpg", "jpeg", "png", "webp", "gif", "mp4", "mov"],
+                type=["jpg", "jpeg", "png", "webp", "mp4", "mov"],
                 key="report_upload",
                 label_visibility="collapsed",
             )
             if uploaded:
-                if uploaded.type.startswith("image"):
-                    # Use PIL to decode the image safely before Streamlit sees it
-                    img = Image.open(uploaded)
-                    st.image(img, use_container_width=True)
-                else:
-                    st.video(uploaded)
+                try:
+                    # Extract bytes safely
+                    file_bytes = uploaded.getvalue()
+                    mime_type = uploaded.type or "image/jpeg"
+                    
+                    if mime_type.startswith("image"):
+                        st.image(file_bytes, use_container_width=True)
+                    else:
+                        st.video(file_bytes)
+                except Exception:
+                    # If Streamlit panics on the file format (like iPhone HEIC), catch it!
+                    st.warning("⚠️ Preview unavailable for this specific file, but you can still submit it!")
 
         with col_right:
             st.markdown("**Citizen Details**")
             citizen_id = st.text_input("Citizen ID", placeholder="e.g. CIT-00123", key="citizen_id")
-            locality = st.text_input("Locality / Ward Name", placeholder="e.g. Sector 62, Noida", key="locality")
+            locality = st.text_input("Locality / Ward Name", placeholder="e.g. Sector 62", key="locality")
 
             st.markdown("**GPS Coordinates**")
             coord_col1, coord_col2, coord_col3 = st.columns([2, 2, 1])
             with coord_col1:
-                lat = st.number_input("Latitude", value=28.6139, format="%.6f", key="lat")
+                lat = st.number_input("Latitude", value=st.session_state["rand_lat"], format="%.6f")
             with coord_col2:
-                lon = st.number_input("Longitude", value=77.2090, format="%.6f", key="lon")
+                lon = st.number_input("Longitude", value=st.session_state["rand_lon"], format="%.6f")
             with coord_col3:
                 st.markdown("<div style='margin-top:1.75rem'></div>", unsafe_allow_html=True)
                 def randomize_coords():
-                    st.session_state["lat"] = round(28.4 + random.random() * 0.5, 6)
-                    st.session_state["lon"] = round(76.9 + random.random() * 0.6, 6)
-                st.button("🎲", help="Randomise coordinates near Delhi NCR", on_click=randomize_coords)
+                    st.session_state["rand_lat"] = round(28.4 + random.random() * 0.5, 6)
+                    st.session_state["rand_lon"] = round(76.9 + random.random() * 0.6, 6)
+                st.button("🎲", help="Randomise coordinates", on_click=randomize_coords)
 
             st.markdown("<div style='margin-top:1rem'></div>", unsafe_allow_html=True)
-            submit_btn = st.button("🚀 Submit Report", use_container_width=True, key="submit_report")
+            submit_btn = st.button("🚀 Submit Report", use_container_width=True)
 
     # ── Submission logic ──
     if submit_btn:
         if not uploaded:
-            st.warning("Please upload a photo or video of the civic issue.")
+            st.warning("Please upload a photo.")
         elif not citizen_id.strip():
             st.warning("Please enter a Citizen ID.")
         else:
-            file_bytes = uploaded.read()
-            with st.spinner("🔍 Running SynthID verification and Gemini AI analysis…"):
+            with st.spinner("🔍 Running AI analysis…"):
+                # CRITICAL FIX: Use uploaded.getvalue() here, NOT uploaded.read() 
+                # so it doesn't send an empty file!
                 result = api_post_form(
                     "/api/report",
                     data={
@@ -661,12 +665,12 @@ def tab_report_verify():
                         "locality_name": locality.strip() or "UNKNOWN",
                     },
                     file_field="image",
-                    file_bytes=file_bytes,
+                    file_bytes=uploaded.getvalue(), 
                     filename=uploaded.name,
                     mime=guess_mime(uploaded.name),
                 )
             if result:
-                st.success(f"✅ Report #{result.get('id')} submitted successfully and queued for community verification.")
+                st.success(f"✅ Report #{result.get('id')} submitted successfully!")
                 st.session_state["last_report"] = result
 
     # Show analysis for last submitted report
@@ -721,20 +725,21 @@ def tab_report_verify():
                     key=f"verify_upload_{report.get('id')}",
                 )
                 if v_file:
-                    # Use PIL here too
-                    v_img = Image.open(v_file)
-                    st.image(v_img, width=280)
-                
-                if st.button(f"Submit Verification for #{report.get('id')}", key=f"verify_btn_{report.get('id')}"):
-                    # ... (keep the rest of your submission logic exactly the same)
+                    try:
+                        st.image(v_file.getvalue(), width=280)
+                    except Exception:
+                        st.warning("⚠️ Preview unavailable, but file is attached!")
+                        
+                if st.button(f"Submit Verification for #{report.get('id')}"):
                     if not v_file:
                         st.warning("Upload a photo first.")
                     else:
                         with st.spinner("Checking authenticity…"):
-                            v_file.seek(0) # <-- Ensure pointer is at start before sending to API
                             res = api_post_file(
                                 f"/api/verify/{report.get('id')}",
-                                v_file.read(), v_file.name, guess_mime(v_file.name)
+                                v_file.getvalue(), # Safely get bytes
+                                v_file.name, 
+                                guess_mime(v_file.name)
                             )
                         if res:
                             st.success(f"✅ Report #{report.get('id')} is now marked **Verified**.")

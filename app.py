@@ -614,8 +614,9 @@ def tab_report_verify():
                 label_visibility="collapsed",
             )
             if uploaded:
+                uploaded.seek(0)  # <-- This is the bulletproof fix! Resets the file pointer.
                 if uploaded.type.startswith("image"):
-                    st.image(uploaded.getvalue(), use_container_width=True)
+                    st.image(uploaded, use_container_width=True)
                 else:
                     st.video(uploaded)
 
@@ -718,18 +719,21 @@ def tab_report_verify():
                     key=f"verify_upload_{report.get('id')}",
                 )
                 if v_file:
-                    st.image(v_file.getvalue(), width=280)
+                    v_file.seek(0)  # <-- Reset pointer here too
+                    st.image(v_file, width=280)
+                
                 if st.button(f"Submit Verification for #{report.get('id')}", key=f"verify_btn_{report.get('id')}"):
                     if not v_file:
                         st.warning("Upload a photo first.")
                     else:
                         with st.spinner("Checking authenticity…"):
+                            v_file.seek(0) # <-- Ensure pointer is at start before sending to API
                             res = api_post_file(
                                 f"/api/verify/{report.get('id')}",
                                 v_file.read(), v_file.name, guess_mime(v_file.name)
                             )
                         if res:
-                            st.success(f"✅ Report #{report.get('id')} is now marked **Verified**. Community heroes earn velocity points when this is resolved!")
+                            st.success(f"✅ Report #{report.get('id')} is now marked **Verified**.")
                             time.sleep(1)
                             st.rerun()
 

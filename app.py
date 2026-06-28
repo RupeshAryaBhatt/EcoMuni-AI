@@ -22,7 +22,7 @@ import streamlit as st
 # ──────────────────────────────────────────────────────────────────────────────
 # Configuration
 # ──────────────────────────────────────────────────────────────────────────────
-API_BASE = "http://localhost:8000"
+API_BASE = "https://ecomuni-backend.onrender.com"
 
 # Severity colour palette (1-10 → hex)
 def severity_color(score: Optional[int]) -> str:

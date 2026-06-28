@@ -718,7 +718,7 @@ def tab_report_verify():
                     key=f"verify_upload_{report.get('id')}",
                 )
                 if v_file:
-                    st.image(v_file, width=280)
+                    st.image(v_file.getvalue(), width=280)
                 if st.button(f"Submit Verification for #{report.get('id')}", key=f"verify_btn_{report.get('id')}"):
                     if not v_file:
                         st.warning("Upload a photo first.")

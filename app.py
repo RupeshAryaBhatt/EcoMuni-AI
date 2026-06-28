@@ -848,14 +848,11 @@ def tab_map():
     st.markdown("### 📋 All Reports")
 
     for r in sorted(filtered, key=lambda x: x.get("reported_at", ""), reverse=True):
-        cat = r.get("issue_category", "OTHER")
-        icon = CATEGORY_ICONS.get(cat, "📍")
         status = report_status(r)
-        badge_cls = {"unverified": "eco-badge-red", "verified": "eco-badge-amber", "resolved": "eco-badge-green"}[status]
-        sev = r.get("severity_score")
 
-        with st.expander(f"{icon} #{r.get('id')} — {cat.replace('_',' ').title()} | {r.get('locality_name','—')}"):
-            render_analysis_card(r, key_prefix="tab2_")
+        # FIX: Changed from st.expander to st.container to prevent nesting errors!
+        with st.container():
+            render_analysis_card(r)
 
             # Resolve action for verified reports
             if status == "verified":
@@ -877,12 +874,14 @@ def tab_map():
                                 res_file.read(), res_file.name, guess_mime(res_file.name)
                             )
                         if res:
-                            # FIX: /api/resolve now returns full ReportOut (not {points_earned})
                             pts = res.get("velocity_points", 0)
                             loc = res.get("locality_name", "your locality")
                             st.success(f"🎉 Report #{r.get('id')} resolved! Earned **{pts:,} velocity points** for {loc}.")
                             time.sleep(1)
                             st.rerun()
+            
+            # Add a divider between reports for clean UI
+            st.markdown('<hr class="eco-divider">', unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

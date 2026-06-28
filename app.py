@@ -615,7 +615,7 @@ def tab_report_verify():
             )
             if uploaded:
                 if uploaded.type.startswith("image"):
-                    st.image(uploaded, use_container_width=True)
+                    st.image(uploaded.getvalue(), use_container_width=True)
                 else:
                     st.video(uploaded)
 

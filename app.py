@@ -18,6 +18,7 @@ from typing import Optional
 import pandas as pd
 import requests
 import streamlit as st
+from PIL import Image
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -614,9 +615,10 @@ def tab_report_verify():
                 label_visibility="collapsed",
             )
             if uploaded:
-                uploaded.seek(0)  # <-- This is the bulletproof fix! Resets the file pointer.
                 if uploaded.type.startswith("image"):
-                    st.image(uploaded, use_container_width=True)
+                    # Use PIL to decode the image safely before Streamlit sees it
+                    img = Image.open(uploaded)
+                    st.image(img, use_container_width=True)
                 else:
                     st.video(uploaded)
 
@@ -719,10 +721,12 @@ def tab_report_verify():
                     key=f"verify_upload_{report.get('id')}",
                 )
                 if v_file:
-                    v_file.seek(0)  # <-- Reset pointer here too
-                    st.image(v_file, width=280)
+                    # Use PIL here too
+                    v_img = Image.open(v_file)
+                    st.image(v_img, width=280)
                 
                 if st.button(f"Submit Verification for #{report.get('id')}", key=f"verify_btn_{report.get('id')}"):
+                    # ... (keep the rest of your submission logic exactly the same)
                     if not v_file:
                         st.warning("Upload a photo first.")
                     else:

@@ -1,15 +1,35 @@
-# Backend & AI Core
+# EcoMuni AI — Python Dependencies (FIXED)
+# Compatible with Python 3.10+
+# Install: pip install -r requirements.txt
+
+# ── Backend (FastAPI) ──────────────────────────────────────────────────────
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 python-multipart==0.0.9
 python-dotenv==1.0.1
+
+# ── Google Gemini SDK ──────────────────────────────────────────────────────
+# FIXED: was 'google-genai' (wrong/2026 package — Client() API differs,
+#         PIL image passing unsupported, and Bearer header injection causes 401)
+# Correct stable package for Google AI Studio keys (AIza...) is:
 google-generativeai==0.7.2
 
-# Database ORM
+# ── Database ORM ───────────────────────────────────────────────────────────
 sqlalchemy==2.0.30
-pydantic==2.7.1
 
-# Computer Vision
+# ── Pydantic v2 ────────────────────────────────────────────────────────────
+pydantic
+
+# ── Computer vision preprocessing ─────────────────────────────────────────
 opencv-python-headless==4.9.0.80
+Pillow
 numpy==1.26.4
-Pillow==10.3.0
+
+# ── Frontend (Streamlit) ───────────────────────────────────────────────────
+streamlit==1.35.0
+requests==2.32.3
+pandas==2.2.2
+
+# ── Map rendering (optional but recommended) ───────────────────────────────
+folium==0.17.0
+streamlit-folium==0.21.1

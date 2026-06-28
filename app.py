@@ -625,7 +625,7 @@ def tab_report_verify():
                     # If Streamlit panics on the file format (like iPhone HEIC), catch it!
                     st.warning("⚠️ Preview unavailable for this specific file, but you can still submit it!")
 
-        with col_right:
+    with col_right:
             st.markdown("**Citizen Details**")
             citizen_id = st.text_input("Citizen ID", placeholder="e.g. CIT-00123", key="citizen_id")
             locality = st.text_input("Locality / Ward Name", placeholder="e.g. Sector 62", key="locality")

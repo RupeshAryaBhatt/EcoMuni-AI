@@ -794,69 +794,30 @@ def tab_map():
 
     filtered = [r for r in reports_data if report_status(r) in status_filter]
 
-    # Try folium first, fall back to st.map
-    try:
-        import folium
-        from streamlit_folium import st_folium
-
-        avg_lat = sum(r.get("latitude", 28.6) for r in filtered) / max(len(filtered), 1)
-        avg_lon = sum(r.get("longitude", 77.2) for r in filtered) / max(len(filtered), 1)
-
-        m = folium.Map(
-            location=[avg_lat, avg_lon],
-            zoom_start=12,
-            tiles="CartoDB dark_matter",
-        )
-
-        STATUS_FOLIUM_COLOR = {
-            "unverified": "red",
-            "verified": "orange",
-            "resolved": "green",
-        }
-
+    # ── THE FIX: Using Streamlit's native st.map instead of Folium ──
+    if not filtered:
+        st.info("No reports match the current filters.")
+    else:
+        # Build a safe DataFrame containing exact colors and marker sizes
+        map_data = []
         for r in filtered:
-            lat_r = r.get("latitude")
-            lon_r = r.get("longitude")
-            if lat_r is None or lon_r is None:
-                continue
-            status = report_status(r)
-            cat = r.get("issue_category", "OTHER")
-            sev = r.get("severity_score", "?")
-            popup_html = f"""
-            <div style="font-family:sans-serif;min-width:180px">
-                <strong>#{r.get('id')} {CATEGORY_ICONS.get(cat,'📍')} {cat.replace('_',' ').title()}</strong><br>
-                <span style="color:gray">Severity: <b>{sev}/10</b></span><br>
-                {r.get('locality_name','—')}<br>
-                <span style="font-size:.8em;color:gray">{fmt_dt(r.get('reported_at'))}</span>
-            </div>
-            """
-            folium.CircleMarker(
-                location=[lat_r, lon_r],
-                radius=8 + (r.get("severity_score") or 3),
-                color=STATUS_COLORS[status],
-                fill=True,
-                fill_color=STATUS_COLORS[status],
-                fill_opacity=0.75,
-                popup=folium.Popup(popup_html, max_width=240),
-                tooltip=f"#{r.get('id')} · {cat} · Sev {sev}",
-            ).add_to(m)
-
-        st_folium(m, use_container_width=True, height=520)
-
-    except ImportError:
-        # Fallback: st.map with colour approximation via size
-        st.info("💡 Install `streamlit-folium` and `folium` for an interactive dark map with popups. Showing basic map now.")
-        map_df = pd.DataFrame([
-            {
-                "lat": r.get("latitude"),
-                "lon": r.get("longitude"),
-                "size": (r.get("severity_score") or 3) * 400,
-            }
-            for r in filtered
-            if r.get("latitude") and r.get("longitude")
-        ])
-        if not map_df.empty:
-            st.map(map_df, latitude="lat", longitude="lon", size="size")
+            lat = r.get("latitude")
+            lon = r.get("longitude")
+            if lat is not None and lon is not None:
+                status = report_status(r)
+                sev = r.get("severity_score") or 3
+                map_data.append({
+                    "lat": float(lat),
+                    "lon": float(lon),
+                    "size": sev * 150,  # Scales marker size natively based on severity
+                    "color": STATUS_COLORS[status] # Passes exact hex color based on status
+                })
+        
+        if map_data:
+            df_map = pd.DataFrame(map_data)
+            st.map(df_map, latitude="lat", longitude="lon", color="color", size="size")
+        else:
+            st.warning("Reports exist, but none have valid GPS coordinates.")
 
     # Report list below map
     st.markdown('<hr class="eco-divider">', unsafe_allow_html=True)

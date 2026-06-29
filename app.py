@@ -5,18 +5,21 @@ Complete single-file UI for the EcoMuni AI civic issue platform.
 Run with:
     streamlit run app.py
 
-Requires the FastAPI backend running on http://localhost:8000
+Requires the FastAPI backend running on https://ecomuni-backend.onrender.com
 """
 
 import json
 import random
 import time
 from datetime import datetime, timezone
+from io import BytesIO
 from typing import Optional
 
 import pandas as pd
+import pydeck as pdk
 import requests
 import streamlit as st
+from PIL import Image
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -610,7 +613,7 @@ def tab_report_verify():
                 label_visibility="collapsed",
             )
             
-            # --- THE NUCLEAR OPTION: NO IMAGE PREVIEW ---
+            # --- UPLOAD STATUS ---
             if uploaded:
                 st.success(f"📎 File attached: **{uploaded.name}**")
                 st.caption("Visual preview disabled for stability. You can proceed to submit!")
@@ -735,7 +738,7 @@ def tab_report_verify():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB 2 — Active Civic Map
+# TAB 2 — Active Civic Map (THE PYDECK UPGRADE)
 # ──────────────────────────────────────────────────────────────────────────────
 def tab_map():
     st.markdown("### 🗺️ Live Civic Issue Map")
@@ -779,6 +782,7 @@ def tab_map():
 
     filtered = [r for r in reports_data if report_status(r) in status_filter]
 
+    # --- THE NATIVE PYDECK IMPLEMENTATION (SMOOTH & BUG-FREE) ---
     if not filtered:
         st.info("No reports match the current filters.")
     else:
@@ -789,16 +793,49 @@ def tab_map():
             if lat is not None and lon is not None:
                 status = report_status(r)
                 sev = r.get("severity_score") or 3
+                cat = r.get("issue_category", "OTHER").replace('_', ' ').title()
+                
+                # Convert our hex colors to RGB for PyDeck to read correctly
+                hex_col = STATUS_COLORS[status].lstrip('#')
+                rgb_col = [int(hex_col[i:i+2], 16) for i in (0, 2, 4)] + [160] # Add opacity
+                
                 map_data.append({
                     "lat": float(lat),
                     "lon": float(lon),
-                    "size": sev * 150,
-                    "color": STATUS_COLORS[status]
+                    "size": (sev * 40) + 100, # Dynamically size radius based on severity
+                    "color": rgb_col,
+                    "tooltip_text": f"#{r.get('id')} - {cat} (Severity: {sev}/10)"
                 })
         
         if map_data:
             df_map = pd.DataFrame(map_data)
-            st.map(df_map, latitude="lat", longitude="lon", color="color", size="size")
+            
+            layer = pdk.Layer(
+                "ScatterplotLayer",
+                data=df_map,
+                get_position="[lon, lat]",
+                get_color="color",
+                get_radius="size",
+                radius_min_pixels=5,
+                radius_max_pixels=25,
+                pickable=True,
+            )
+            
+            view_state = pdk.ViewState(
+                latitude=df_map["lat"].mean(),
+                longitude=df_map["lon"].mean(),
+                zoom=11,
+                pitch=0,
+            )
+            
+            st.pydeck_chart(
+                pdk.Deck(
+                    layers=[layer],
+                    initial_view_state=view_state,
+                    tooltip={"html": "<b>{tooltip_text}</b>", "style": {"backgroundColor": "#161b22", "color": "white"}}
+                ),
+                use_container_width=True
+            )
         else:
             st.warning("Reports exist, but none have valid GPS coordinates.")
 

@@ -12,13 +12,11 @@ import json
 import random
 import time
 from datetime import datetime, timezone
-from io import BytesIO
 from typing import Optional
 
 import pandas as pd
 import requests
 import streamlit as st
-from PIL import Image
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -383,7 +381,7 @@ def api_get(path: str, params: dict = None) -> Optional[dict]:
         r.raise_for_status()
         return r.json()
     except requests.exceptions.ConnectionError:
-        st.error("⚠️ Cannot reach backend at `http://localhost:8000`. Is the FastAPI server running?")
+        st.error("⚠️ Cannot reach backend. Is the FastAPI server running?")
         return None
     except Exception as e:
         st.error(f"API error: {e}")
@@ -402,7 +400,7 @@ def api_post_form(path: str, data: dict, file_field: str, file_bytes: bytes, fil
             st.error(f"Server returned {r.status_code}: {detail}")
         return None
     except requests.exceptions.ConnectionError:
-        st.error("⚠️ Cannot reach backend at `http://localhost:8000`. Is the FastAPI server running?")
+        st.error("⚠️ Cannot reach backend. Is the FastAPI server running?")
         return None
     except Exception as e:
         st.error(f"Request failed: {e}")
@@ -421,7 +419,7 @@ def api_post_file(path: str, file_bytes: bytes, filename: str, mime: str) -> Opt
             st.error(f"Server returned {r.status_code}: {detail}")
         return None
     except requests.exceptions.ConnectionError:
-        st.error("⚠️ Cannot reach backend at `http://localhost:8000`.")
+        st.error("⚠️ Cannot reach backend.")
         return None
     except Exception as e:
         st.error(f"Request failed: {e}")
@@ -475,7 +473,6 @@ def render_hero():
 
 
 def render_analysis_card(report: dict, key_prefix: str = ""):
-    """Renders the full Gemini analysis panel for a single report."""
     sev = report.get("severity_score")
     cat = report.get("issue_category", "UNKNOWN")
     icon = CATEGORY_ICONS.get(cat, "📍")
@@ -596,13 +593,11 @@ def tab_report_verify():
     st.markdown("### 📷 Submit a New Civic Issue Report")
     st.markdown('<hr class="eco-divider">', unsafe_allow_html=True)
 
-    # Safety initialization for session state variables
     if "rand_lat" not in st.session_state:
         st.session_state["rand_lat"] = 28.6139
     if "rand_lon" not in st.session_state:
         st.session_state["rand_lon"] = 77.2090
 
-    # ── Report form ──
     with st.container():
         col_left, col_right = st.columns([1.1, 1], gap="large")
 
@@ -615,20 +610,10 @@ def tab_report_verify():
                 label_visibility="collapsed",
             )
             
-            # --- PERFECT PREVIEW LOGIC (Using PIL + BytesIO for stability) ---
+            # --- THE NUCLEAR OPTION: NO IMAGE PREVIEW ---
             if uploaded:
-                try:
-                    bytes_data = uploaded.getvalue()
-                    mime_type = uploaded.type or "image/jpeg"
-                    
-                    if mime_type.startswith("video"):
-                        st.video(bytes_data)
-                    else:
-                        # Feed the raw bytes safely into Pillow in memory
-                        img = Image.open(BytesIO(bytes_data))
-                        st.image(img, use_container_width=True)
-                except Exception:
-                    st.warning("⚠️ Preview unavailable for this specific file format, but you can still submit it!")
+                st.success(f"📎 File attached: **{uploaded.name}**")
+                st.caption("Visual preview disabled for stability. You can proceed to submit!")
 
         with col_right:
             st.markdown("**Citizen Details**")
@@ -676,13 +661,13 @@ def tab_report_verify():
                 st.success(f"✅ Report #{result.get('id')} submitted successfully!")
                 st.session_state["last_report"] = result
 
-    # Show analysis for last submitted report
+    # Show analysis
     if "last_report" in st.session_state:
         st.markdown('<hr class="eco-divider">', unsafe_allow_html=True)
         st.markdown("### 🤖 AI Analysis Results")
         render_analysis_card(st.session_state["last_report"], key_prefix="tab1_")
 
-    # ── Open cases for neighbour verification ──
+    # ── Open cases ──
     st.markdown('<hr class="eco-divider">', unsafe_allow_html=True)
     st.markdown("### 🏘️ Open Cases Awaiting Neighbour Verification")
     st.caption("Help your community by verifying issues reported nearby. Upload a corroborating photo to add weight to the report.")
@@ -728,13 +713,9 @@ def tab_report_verify():
                     key=f"verify_upload_{report.get('id')}",
                 )
                 
-                # --- PERFECT PREVIEW LOGIC ---
+                # --- NO IMAGE PREVIEW ---
                 if v_file:
-                    try:
-                        v_img = Image.open(BytesIO(v_file.getvalue()))
-                        st.image(v_img, width=280)
-                    except Exception:
-                        st.warning("⚠️ Preview unavailable, but file is attached!")
+                    st.success(f"📎 Proof attached: {v_file.name}")
                         
                 if st.button(f"Submit Verification for #{report.get('id')}"):
                     if not v_file:
@@ -801,7 +782,6 @@ def tab_map():
     if not filtered:
         st.info("No reports match the current filters.")
     else:
-        # Build a safe DataFrame containing exact colors and marker sizes
         map_data = []
         for r in filtered:
             lat = r.get("latitude")
@@ -841,13 +821,9 @@ def tab_map():
                     key=f"resolve_upload_{r.get('id')}"
                 )
                 
-                # --- PERFECT PREVIEW LOGIC ---
+                # --- NO IMAGE PREVIEW ---
                 if res_file:
-                    try:
-                        res_img = Image.open(BytesIO(res_file.getvalue()))
-                        st.image(res_img, width=240)
-                    except Exception:
-                        st.warning("⚠️ Preview unavailable, but file is attached!")
+                    st.success(f"📎 Proof attached: {res_file.name}")
                         
                 if st.button(f"Mark #{r.get('id')} as Resolved", key=f"resolve_btn_{r.get('id')}"):
                     if not res_file:
@@ -881,7 +857,6 @@ def tab_leaderboard():
         "not how few problems it has. A high score means fast, effective community action."
     )
 
-    # Explainer callout
     st.markdown("""
     <div class="eco-card" style="border-color:#3fb95040;background:rgba(63,185,80,.05)">
         <div style="display:flex;gap:1rem;align-items:flex-start">
@@ -933,7 +908,6 @@ def tab_leaderboard():
         name = entry.get("locality_name", "Unknown")
         medal = medals.get(rank, f"#{rank}")
 
-        # Bar width relative to top score
         bar_pct = min(int((score / max(top_score, 1)) * 100), 100)
         avg_vel = round(score / max(resolved, 1))
 
@@ -967,7 +941,6 @@ def tab_leaderboard():
 
     st.bar_chart(df_chart.set_index("Locality")["Velocity Score"], use_container_width=True, height=300)
 
-    # Raw data toggle
     with st.expander("📊 Raw Leaderboard Data"):
         st.dataframe(
             pd.DataFrame(lb_data)[["rank", "locality_name", "cumulative_velocity_score", "total_resolved"]].rename(

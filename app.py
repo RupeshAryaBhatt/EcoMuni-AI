@@ -604,7 +604,6 @@ def tab_report_verify():
 
     # ── Report form ──
     with st.container():
-        # CRITICAL FIX: Define the columns before using them!
         col_left, col_right = st.columns([1.1, 1], gap="large")
 
         with col_left:
@@ -615,18 +614,20 @@ def tab_report_verify():
                 key="report_upload",
                 label_visibility="collapsed",
             )
+            
+            # --- PERFECT PREVIEW LOGIC (Using PIL + BytesIO for stability) ---
             if uploaded:
                 try:
-                    # Extract bytes safely to prevent EOF pointer errors
-                    file_bytes = uploaded.getvalue()
+                    bytes_data = uploaded.getvalue()
                     mime_type = uploaded.type or "image/jpeg"
                     
-                    if mime_type.startswith("image"):
-                        st.image(file_bytes, use_container_width=True)
+                    if mime_type.startswith("video"):
+                        st.video(bytes_data)
                     else:
-                        st.video(file_bytes)
+                        # Feed the raw bytes safely into Pillow in memory
+                        img = Image.open(BytesIO(bytes_data))
+                        st.image(img, use_container_width=True)
                 except Exception:
-                    # If Streamlit panics on the file format (like HEIC), catch it cleanly
                     st.warning("⚠️ Preview unavailable for this specific file format, but you can still submit it!")
 
         with col_right:
@@ -726,9 +727,12 @@ def tab_report_verify():
                     type=["jpg", "jpeg", "png", "webp"],
                     key=f"verify_upload_{report.get('id')}",
                 )
+                
+                # --- PERFECT PREVIEW LOGIC ---
                 if v_file:
                     try:
-                        st.image(v_file.getvalue(), width=280)
+                        v_img = Image.open(BytesIO(v_file.getvalue()))
+                        st.image(v_img, width=280)
                     except Exception:
                         st.warning("⚠️ Preview unavailable, but file is attached!")
                         
@@ -794,7 +798,6 @@ def tab_map():
 
     filtered = [r for r in reports_data if report_status(r) in status_filter]
 
-    # ── THE FIX: Using Streamlit's native st.map instead of Folium ──
     if not filtered:
         st.info("No reports match the current filters.")
     else:
@@ -809,8 +812,8 @@ def tab_map():
                 map_data.append({
                     "lat": float(lat),
                     "lon": float(lon),
-                    "size": sev * 150,  # Scales marker size natively based on severity
-                    "color": STATUS_COLORS[status] # Passes exact hex color based on status
+                    "size": sev * 150,
+                    "color": STATUS_COLORS[status]
                 })
         
         if map_data:
@@ -837,9 +840,12 @@ def tab_map():
                     "Proof photo", type=["jpg", "jpeg", "png", "webp"],
                     key=f"resolve_upload_{r.get('id')}"
                 )
+                
+                # --- PERFECT PREVIEW LOGIC ---
                 if res_file:
                     try:
-                        st.image(res_file.getvalue(), width=240)
+                        res_img = Image.open(BytesIO(res_file.getvalue()))
+                        st.image(res_img, width=240)
                     except Exception:
                         st.warning("⚠️ Preview unavailable, but file is attached!")
                         
